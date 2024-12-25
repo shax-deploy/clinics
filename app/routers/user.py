@@ -42,50 +42,6 @@ def login_for_access_token(user: UserLogin, db: Session = Depends(get_db)):
 
 
 
-# @router.post("/getToken")
-# def login_for_access_token(user: UserLogin, db: Session = Depends(get_db)):
-#     # Foydalanuvchini bazadan olish
-#     user_in_db = db.query(User).filter(User.username == user.username).first()
-#     if not user_in_db or not verify_password(user.password, user_in_db.password):
-#         raise HTTPException(
-#             status_code=status.HTTP_401_UNAUTHORIZED,
-#             detail="Invalid username or password",
-#             headers={"WWW-Authenticate": "Bearer"},
-#         )
-    
-#     # Mavjud tokenni tekshirish
-#     if user_in_db.last_access_token:
-#         try:
-#             payload = jwt.decode(user_in_db.last_access_token, settings.SECRET_KEY, algorithms=[settings.ALGORITHM])
-#             exp = datetime.utcfromtimestamp(payload.get("exp"))
-#             if exp > datetime.utcnow():
-#                 # Agar access token muddati tugamagan bo'lsa, uni qaytaramiz
-#                 return {
-#                     "access_token": user_in_db.last_access_token,
-#                     "refresh_token": user_in_db.last_refresh_token,
-#                     "token_type": "bearer"
-#                 }
-#         except jwt.ExpiredSignatureError:
-#             pass  # Muddati tugagan bo'lsa, yangi token yaratiladi
-#         except jwt.JWTError:
-#             pass  # Noto'g'ri token bo'lsa, yangi token yaratiladi
-    
-#     # Yangi token yaratish
-#     access_token = create_access_token(data={"sub": user_in_db.email})
-#     refresh_token = create_refresh_token(data={"sub": user_in_db.email})
-    
-#     # Tokenlarni foydalanuvchi yozuviga saqlash
-#     user_in_db.last_access_token = access_token
-#     user_in_db.last_refresh_token = refresh_token
-#     db.commit()
-    
-#     return {
-#         "access_token": access_token,
-#         "refresh_token": refresh_token,
-#         "token_type": "bearer"
-#     }
-
-
 # Joriy foydalanuvchini olish endpointi
 @router.get("/users/me", response_model=UserResponse)
 def read_users_me(current_user: UserVerify = Depends(get_current_user)):
@@ -107,6 +63,13 @@ def create_user(user: UserCreate, db: Session = Depends(get_db)):
             status_code=status.HTTP_400_BAD_REQUEST,
             detail="Email already registered",
         )
+    
+    if db.query(User).filter(User.phone == user.phone).first():
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Phone already registered",
+        )
+
     if not user.password:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
@@ -133,17 +96,10 @@ def get_users(
     skip: int = 0,
     limit: int = 100,
     db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_admin_user)
+    # current_user: User = Depends(get_current_admin_user)
 ):
     return db.query(User).offset(skip).limit(limit).all()
 
-# # Foydalanuvchini yangilash
-# @router.put("/{id}", response_model=UserResponse)
-# def update_user(id: int, user: UserCreate, db: Session = Depends(get_db)):
-#     db_user = user_crud.get(db=db, id=id)
-#     if not db_user:
-#         raise HTTPException(status_code=404, detail="User not found")
-#     return user_crud.update(db=db, db_obj=db_user, obj_in=user)
 
 @router.put("/{id}", response_model=UserResponse)
 @router.patch("/{id}", response_model=UserResponse)
@@ -158,12 +114,10 @@ def update_user(
         raise HTTPException(status_code=404, detail="User not found")
     
     if request.method == "PUT":
-        # PUT uchun barcha maydonlarni yangilash
         updated_data = user.dict()
         for key, value in updated_data.items():
             setattr(db_user, key, value)
     elif request.method == "PATCH":
-        # PATCH uchun faqat yuborilgan maydonlarni yangilash
         updated_data = user.dict(exclude_unset=True)
         for key, value in updated_data.items():
             setattr(db_user, key, value)
