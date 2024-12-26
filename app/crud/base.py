@@ -30,7 +30,7 @@ class CRUDBase(Generic[ModelType, CreateSchemaType, UpdateSchemaType]):
         return db_obj
     
     def create_patient(self, db: Session, obj_in: dict):
-        db_obj = self.model(**obj_in)  # obj_in.dict() emas, chunki obj_in allaqachon dict
+        db_obj = self.model(**obj_in) 
         db.add(db_obj)
         db.commit()
         db.refresh(db_obj)
@@ -63,80 +63,52 @@ class CRUDDoctor(CRUDBase[Doctor, DoctorCreate, DoctorUpdate]):
         """
         Doktor va unga tegishli foydalanuvchini yaratish.
         """
-        # Foydalanuvchini yaratish
         user = User(**user_data)
         db.add(user)
         db.commit()
         db.refresh(user)
 
-        # Doktorni yaratish va foydalanuvchi bilan bog'lash
         doctor = self.model(id=user.id, **doctor_data)
         db.add(doctor)
         db.commit()
         db.refresh(doctor)
 
         return doctor
-    
-    # def update_with_doctor(self, db: Session, doctor_id: int, doctor_data: DoctorUpdate):
-    #     db_doctor = db.query(Doctor).filter(Doctor.id == doctor_id).first()
-        
-    #     if not db_doctor:
-    #         raise HTTPException(status_code=404, detail="Doctor not found")
-
-    #     # Yangilanishlarni qo'llash
-    #     for key, value in doctor_data.dict(exclude_unset=True).items():
-    #         setattr(db_doctor, key, value)
-
-    #     # O'zgarishlarni bazaga saqlash
-    #     db.commit()
-    #     db.refresh(db_doctor)
-    #     return db_doctor
-    
 
     def update_patch_with_doctor(self, db: Session, doctor_id: int, doctor_data: DoctorUpdate):
-        # Doktorni olish
         db_doctor = db.query(Doctor).filter(Doctor.id == doctor_id).first()
         if not db_doctor:
             raise HTTPException(status_code=404, detail="Doctor not found")
 
-        # Doktorning foydalanuvchisini olish
         db_user = db_doctor.user
 
-        # Doktor uchun yangilanishlarni qo'llash
         doctor_fields = {key: value for key, value in doctor_data.dict(exclude_unset=True).items() if hasattr(Doctor, key)}
         for key, value in doctor_fields.items():
             setattr(db_doctor, key, value)
 
-        # Foydalanuvchi uchun yangilanishlarni qo'llash
         user_fields = {key: value for key, value in doctor_data.dict(exclude_unset=True).items() if hasattr(User, key)}
         for key, value in user_fields.items():
             setattr(db_user, key, value)
 
-        # O'zgarishlarni bazaga saqlash
         db.commit()
         db.refresh(db_doctor)
         return db_doctor
 
     def update_put_with_doctor(self, db: Session, doctor_id: int, doctor_data: DoctorCreate):
-        # Doktorni olish
         db_doctor = db.query(Doctor).filter(Doctor.id == doctor_id).first()
         if not db_doctor:
             raise HTTPException(status_code=404, detail="Doctor not found")
 
-        # Doktorning foydalanuvchisini olish
         db_user = db_doctor.user
 
-        # Doktor uchun yangilanishlarni qo'llash
         doctor_fields = {key: value for key, value in doctor_data.dict().items() if hasattr(Doctor, key)}
         for key, value in doctor_fields.items():
             setattr(db_doctor, key, value)
 
-        # Foydalanuvchi uchun yangilanishlarni qo'llash
         user_fields = {key: value for key, value in doctor_data.dict().items() if hasattr(User, key)}
         for key, value in user_fields.items():
             setattr(db_user, key, value)
 
-        # O'zgarishlarni bazaga saqlash
         db.commit()
         db.refresh(db_doctor)
         return db_doctor

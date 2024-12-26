@@ -6,7 +6,7 @@ from app.core.auth import hash_password
 from app.database import get_db
 from app.models.user import User
 from app.models.clinics import Doctor
-from app.models.clinics import Patient
+from app.models.clinics import Patient, DoctorService
 
 from app.schemas.clinics import (
     DoctorCreate, DoctorUpdate, DoctorResponse,
@@ -94,20 +94,51 @@ def delete_doctor(doctor_id: int, db: Session = Depends(get_db)):
 # DoctorService endpoints
 @router.post("/services/", response_model=DoctorServiceResponse, status_code=status.HTTP_201_CREATED)
 def create_service(service: DoctorServiceCreate, db: Session = Depends(get_db)):
-    print("--------service-----------",service)
+    existing_service = db.query(DoctorService).filter(
+        DoctorService.doctor_id == service.doctor_id,
+        DoctorService.service_name == service.service_name
+    ).first()
+    
+    if existing_service:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=f"Service with name '{service.service_name}' already exists for this doctor."
+        )
     return doctor_service_crud.create(db=db, obj_in=service)
 
 @router.get("/services/", response_model=List[DoctorServiceResponse])
 def get_services(skip: int = 0, limit: int = 10, db: Session = Depends(get_db)):
-
     return doctor_service_crud.get_multi(db=db, skip=skip, limit=limit)
 
-@router.delete("/services/{service_id}", response_model=DoctorServiceResponse)
+@router.get("/service/{service_id}", response_model=DoctorServiceResponse)
+def get_service(service_id: int, db: Session = Depends(get_db)):
+    service = doctor_service_crud.get(db=db, id=service_id)
+    if not service:
+        raise HTTPException(status_code=404, detail="Service not found")
+    return service
+
+@router.patch("/service/{service_id}", response_model=DoctorServiceResponse)
+def update_service(service_id: int, service: DoctorServiceUpdate, db: Session = Depends(get_db)):
+    db_service = doctor_service_crud.get(db=db, id=service_id)
+    if not db_service:
+        raise HTTPException(status_code=404, detail="Service not found")
+    existing_service = db.query(DoctorService).filter(
+        DoctorService.doctor_id == service.doctor_id,
+        DoctorService.service_name == service.service_name
+    ).first()
+    
+    if existing_service:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=f"Service with name '{service.service_name}' already exists for this doctor.")
+    return doctor_service_crud.update(db=db, db_obj=db_service, obj_in=service)
+
+@router.delete("/service/{service_id}", response_model=DoctorServiceResponse)
 def delete_service(service_id: int, db: Session = Depends(get_db)):
     service = doctor_service_crud.get(db=db, id=service_id)
     if not service:
         raise HTTPException(status_code=404, detail="Service not found")
-    return doctor_service_crud.remove(db=db, id=service_id)
+    return doctor_service_crud.delete(db=db, id=service_id)
 
 # -------------------------------------------------------------------------------------------------------------
 
@@ -151,11 +182,45 @@ def create_patient(patient: PatientCreate, db: Session = Depends(get_db)):
 def get_patients(skip: int = 0, limit: int = 10, db: Session = Depends(get_db)):
     return patient_crud.get_multi(db=db, skip=skip, limit=limit)
 
+@router.get("/patient/{patient_id}", response_model=PatientResponse)
+def get_patient(patient_id: int, db: Session = Depends(get_db)):
+    patient = patient_crud.get(db=db, id=patient_id)
+    if not patient:
+        raise HTTPException(status_code=404, detail="Patient not found")
+    return patient
 
 @router.patch("/patients/{patient_id}", response_model=PatientResponse)
 def update_patient(patient_id: int, patient: PatientUpdate, db: Session = Depends(get_db)):
-    updated_patient = patient_crud.update(db=db, id=patient_id, patient_data=patient)
-    return updated_patient
+    db_patient = patient_crud.get(db=db, id=patient_id)
+    if not db_patient:
+        raise HTTPException(status_code=404, detail="Patient not found")
+    return patient_crud.update(db=db, db_obj=db_patient, obj_in=patient)
+
+@router.delete("/patient/{patient_id}", response_model=PatientResponse)
+def delete_patient(patient_id: int, db: Session = Depends(get_db)):
+    service = patient_crud.get(db=db, id=patient_id)
+    if not service:
+        raise HTTPException(status_code=404, detail="Patient not found")
+    return patient_crud.remove(db=db, id=patient_id)
+
+# @router.patch("/patient/{patient_id}", response_model=PatientResponse)
+# def update_patient(patient_id: int, patient: PatientUpdate, request: Request, db: Session = Depends(get_db)):
+#     db_patient = patient_crud.get(db=db, id=patient_id)
+#     if not db_patient:
+#         raise HTTPException(status_code=404, detail="Patient not found")
+    
+#     if request.method == "PUT":
+#         updated_data = patient.dict()
+#         for key, value in updated_data.items():
+#             setattr(db_patient, key, value)
+#     elif request.method == "PATCH":
+#         updated_data = patient.dict(exclude_unset=True)
+#         for key, value in updated_data.items():
+#             setattr(db_patient, key, value)
+
+#     db.commit()
+#     db.refresh(db_patient)
+#     return db_patient
 
 # ------------------------------------------------------------------------------------------------------------
 

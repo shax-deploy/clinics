@@ -46,7 +46,8 @@ class DoctorServiceCreate(DoctorServiceBase):
 class DoctorServiceUpdate(BaseModel):
     service_name: Optional[str] = None
     price: Optional[float] = None
-
+    doctor_id: Optional[int] = None
+    
 class DoctorServiceResponse(DoctorServiceBase):
     id: int
     doctor_id: int
